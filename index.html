@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title></title>
+</head>
+<body>
+    <h1>EPA AirNow API PM2.5 Wrapper</h1>
+    <h2>Fill in the time ranges below to get hourly US PM2.5 data:</h2>
+    <p>(All ranges are inclusive)</p>
+    <form id='myForm'>
+        <!-- year -->
+        <label for="fname">First Year:</label><br>
+        <input type="text" id="fyear" name="fyear"><br>
+        <label for="fname">Last Year:</label><br>
+        <input type="text" id="lyear" name="lyear"><br>
+        <!-- month -->
+        <label for="fname">First Month:</label><br>
+        <input type="text" id="fmonth" name="fmonth"><br>
+        <label for="fname">Last Month:</label><br>
+        <input type="text" id="lmonth" name="lmonth"><br>
+        <!-- day -->
+        <label for="fname">First Day:</label><br>
+        <input type="text" id="fday" name="fday"><br>
+        <label for="fname">Last Day:</label><br>
+        <input type="text" id="lday" name="lday"><br>
+        <!-- hour -->
+        <label for="fname">First Hour:</label><br>
+        <input type="text" id="fhour" name="fhour"><br>
+        <label for="fname">Last Hour:</label><br>
+        <input type="text" id="lhour" name="lhour"><br>
+        <!-- submit -->
+        <button id='submitButton' type="submit">Generate URLs</button>
+      </form>
+    <button id='nextButton' onclick="downloadNext()" style="display: none;">Download Next File</button>
+    <p id='console' style="background-color: black; color: white; font-family: 'Courier New';">> Fill out the date ranges above to begin.</p>
+    <h2>What is this?</h2>
+    <p>The EPA's <a href="https://docs.airnowapi.org/">AirNow</a> "API" does not actually offer a programming interface, it is just a list of hyperlinked files, which makes large scale data collection difficult.</p>
+    <p>This website is an API wrapper that semi-automates data collection from AirNow.</p>
+    <h2>How does it work?</h2>
+    <p>This website simply generates the download urls to each data file within a given time range, and then opens the urls in a new tab/window one at a time with user input.</p>
+    <p>Unfortunately, user input for each file is required.</p>
+    <p>I do not plan on maintaining this site, so it will break with small changes to AirNow's file structure, but all of its code is free and open source at <a href="https://noahlb123.github.io/airnow-pm2.5-api-wrapper">https://noahlb123.github.io/airnow-pm2.5-api-wrapper</a></p>
+<script>
+//pad numbers with leading zeros
+const zeroPad = (num, places) => String(num).padStart(places, '0');
+
+//setup parameters
+var yearRange = [2025, 2025];
+var monthRange = [1, 1];
+var dayRange = [1, 31];
+var hourRange = [0, 23];
+var urls = [];
+var url_index = 0;
+
+//setup DOM elements and event listners
+document.getElementById('myForm').addEventListener("submit", generateURLs);
+var nextButton = document.getElementById('nextButton');
+var submitButton = document.getElementById('submitButton');
+
+//update button
+function nInRanges(ranges) {
+    m_sum = 1;
+    for (i_ranges = 0; i_ranges < ranges.length; i_ranges++) {
+        range = ranges[i_ranges];
+        m_sum *= range[1] - range[0] + 1;
+    }
+    return m_sum;
+}
+
+//update console
+function updateConsole(string) {
+    document.getElementById('console').innerHTML = '> ' + string;
+}
+
+//form submission
+function generateURLs(event) {
+    try {
+        var formData = new FormData(document.getElementById("myForm"));
+        if (formData.get('lhour') != '') {
+            yearRange = [formData.get('fyear'), formData.get('lyear')];
+            monthRange = [formData.get('fmonth'), formData.get('lmonth')];
+            dayRange = [formData.get('fday'), formData.get('lday')];
+            hourRange = [formData.get('fhour'), formData.get('lhour')];
+            appendURLs();
+            updateConsole('Compiled ' + String(nInRanges([yearRange, monthRange, dayRange, hourRange])) + ' files');
+        } else {
+            appendURLs();
+            updateConsole('Compiled ' + String(nInRanges([yearRange, monthRange, dayRange, hourRange])) + ' test files');
+        }
+        nextButton.style.display = 'block';
+    } catch(e) {
+        updateConsole(e);
+    }
+    event.preventDefault();
+}
+
+//append urls to global var
+function appendURLs() {
+    for (year = yearRange[0]; year <= yearRange[1]; year++) {
+        var cropped_year = String(year).slice(2, 4);
+        for (month = monthRange[0]; month <= monthRange[1]; month++) {
+            for (day = dayRange[0]; day <= dayRange[1]; day++) {
+                for (hour = hourRange[0]; hour <= hourRange[1]; hour++) {
+                    var date = year + zeroPad(month, 2) + zeroPad(day, 2);
+                    var hourDate = cropped_year + zeroPad(month, 2) + zeroPad(day, 2) + zeroPad(hour, 2);
+                    var url = 'https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/' + String(year) + '/' + date + '/US-' + hourDate + '_pm25.grib2';
+                    urls.push(url);
+                }
+            }
+        }
+    }
+}
+
+//download one file at a time
+function downloadNext() {
+    window.open(urls[url_index], '_blank').focus();
+    url_index++;
+    updateConsole('Downloaded ' + String(url_index) + '/' + String(nInRanges([yearRange, monthRange, dayRange, hourRange])) + ' files')
+}
+</script>
+</body>
+</html>
